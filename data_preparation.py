@@ -8,8 +8,6 @@ import os
 from keras.models import Model, Sequential
 X = []
 y = []
-plt.figure()
-
 c1, c2, c3, c4 = 0, 0, 0, 0
 ANNO_PATH = "/home/nguyen.viet.anhd/Downloads/respiratory-sound-database/Respiratory_Sound_Database/Respiratory_Sound_Database/annotation/"
 AU_PATH = "/home/nguyen.viet.anhd/Downloads/respiratory-sound-database/Respiratory_Sound_Database/Respiratory_Sound_Database/audio/"
