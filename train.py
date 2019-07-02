@@ -30,7 +30,7 @@ print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
 
 
 model = Sequential()
-model.add(Convolution2D(64, 3, padding='same', input_shape=(60, 23, 2), use_bias=False))
+model.add(Convolution2D(64, 3, padding='same', input_shape=(60, 23, 2), use_bias=False, kernel_initializer=''))
 model.add(BatchNormalization())
 model.add(Activation('relu'))
 
@@ -48,14 +48,14 @@ model.add(BatchNormalization())
 model.add(Activation('relu'))
 model.add(MaxPool2D(2, 2, padding='same'))
 
-model.add(Convolution2D(256, 3, padding='same', use_bias=False))
-model.add(BatchNormalization())
-model.add(Activation('relu'))
-
-model.add(Convolution2D(256, 3, padding='same', use_bias=False))
-model.add(BatchNormalization())
-model.add(Activation('relu'))
-model.add(MaxPool2D(2, 2, padding='same'))
+# model.add(Convolution2D(256, 3, padding='same', use_bias=False))
+# model.add(BatchNormalization())
+# model.add(Activation('relu'))
+#
+# model.add(Convolution2D(256, 3, padding='same', use_bias=False))
+# model.add(BatchNormalization())
+# model.add(Activation('relu'))
+# model.add(MaxPool2D(2, 2, padding='same'))
 
 model.add(Flatten())
 model.add(Dense(1024, use_bias=False))
