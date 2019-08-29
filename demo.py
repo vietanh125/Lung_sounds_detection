@@ -4,7 +4,26 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyaudio
 import sys
+from keras.models import load_model
+import keras.backend as K
 
+def f1(y_true, y_pred):
+    def recall(y_true, y_pred):
+        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+        recall = true_positives / (possible_positives + K.epsilon())
+        return recall
+
+    def precision(y_true, y_pred):
+        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+        precision = true_positives / (predicted_positives + K.epsilon())
+        return precision
+    precision = precision(y_true, y_pred)
+    recall = recall(y_true, y_pred)
+    return 2*((precision*recall)/(precision+recall+K.epsilon()))
+
+clf = load_model("weights-improvement-186-0.81.h5", custom_objects={'f1': f1})
 #############################
 # GUI parameters
 #############################
@@ -17,11 +36,11 @@ lpcOverlay = False
 # Stream Parameters
 #############################
 DEVICE = 5
-CHUNK = 1024*24
+CHUNK = 10200
 WINDOW = np.hamming(CHUNK)
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 44100
+RATE = 22050
 
 #############################
 # Spectral parameters
@@ -66,15 +85,15 @@ print ("\tRate:", RATE)
 print ("\tChannels:", CHANNELS)
 print ("\tFormat:", FORMAT)
 
-isSupported = p.is_format_supported(input_format=FORMAT,
-                                    input_channels=1,
-                                    rate=RATE,
-                                    input_device=DEVICE)
-if isSupported:
-    print ("\nThese settings are supported on device %i!\n" % (DEVICE))
-else:
-    sys.exit("\nUh oh, these settings aren't",
-             " supported on device %i.\n" % (DEVICE))
+# isSupported = p.is_format_supported(input_format=FORMAT,
+#                                     input_channels=1,
+#                                     rate=RATE,
+#                                     input_device=DEVICE)
+# if isSupported:
+#     print ("\nThese settings are supported on device %i!\n" % (DEVICE))
+# else:
+#     sys.exit("\nUh oh, these settings aren't",
+#              " supported on device %i.\n" % (DEVICE))
 
 stream = p.open(format=FORMAT,
                 channels=CHANNELS,
