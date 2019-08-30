@@ -4,8 +4,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyaudio
 import sys
-from keras.models import load_model
 import keras.backend as K
+from keras.models import load_model
+import data_preparation
+from speech_feature_extractor.gfcc_extractor import gfcc_extractor
+from speech_feature_extractor.feature_extractor import cochleagram_extractor
 
 def f1(y_true, y_pred):
     def recall(y_true, y_pred):
@@ -22,8 +25,9 @@ def f1(y_true, y_pred):
     precision = precision(y_true, y_pred)
     recall = recall(y_true, y_pred)
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
-
-clf = load_model("weights-improvement-186-0.81.h5", custom_objects={'f1': f1})
+classifier = load_model("vgg-95-0.88.h5", custom_objects={'f1':f1})
+import pickle
+detector = pickle.load(open("svm_detector.pkl", 'rb'))
 #############################
 # GUI parameters
 #############################
@@ -105,6 +109,7 @@ stream = p.open(format=FORMAT,
 # Fetch incoming data
 ##########################
 errorCount = [0]
+import time
 if not headless:
     oldy = range(2*CHUNK)
 
@@ -119,7 +124,7 @@ if not headless:
         axTime.set_xticklabels('#c6dbef')
         plt.grid()
         lineTime, = axTime.plot(range(2*CHUNK), range(2*CHUNK), c='#08519c')
-        plt.ylim([-30000, 30000])
+        plt.ylim([-80000, 80000])
         plt.xlim([0, 2*CHUNK])
         plt.title('Real Time Audio (milliseconds)')
         axTime.set_xticks(np.linspace(0, 2*CHUNK, 5))
@@ -148,16 +153,37 @@ if not headless:
     ######################################################
     # Define function to update figure for each iteration.
     ######################################################
+    pre = np.fromstring(stream.read(CHUNK), np.int16)
     def update(frame_number):
         global oldy
+        global pre
         objects_to_return = []
         try:
-            incoming = np.fromstring(stream.read(CHUNK), 'Int16')
+            incoming = np.fromstring(stream.read(CHUNK), np.int16)
             if timeDomain:
                 newy = list(oldy[CHUNK:])
                 newy.extend(incoming)
                 lineTime.set_ydata(newy)
                 objects_to_return.append(lineTime)
+                frame = np.append(pre, incoming, axis=0)
+                cochlea = cochleagram_extractor(frame, RATE, 320, 160, 126, 'hanning')
+                gfcc = gfcc_extractor(cochlea, 126, 32)
+                # svm_feat = data_preparation.feature_extraction(frame/1.0, RATE)
+                # print(detector.predict([svm_feat]))
+                gfcc = np.expand_dims(gfcc, 2)
+                gfcc = np.expand_dims(gfcc, 0)
+                res = classifier.predict(gfcc)
+                pred = np.argmax(res)
+                if pred == 0:
+                    st = "normal"
+                elif pred == 1:
+                    st = "wheeze"
+                else:
+                    st = "crackle"
+                acc = res[0][pred]
+                pre = incoming
+                text = plt.text(0, 0, "predict: " + st + " - acc:" + str(acc) , dict(size=15))
+                objects_to_return.append(text)
                 oldy = newy
             if freqDomain:
                 windowed = incoming*WINDOW
@@ -178,11 +204,23 @@ if not headless:
                 pass
         return objects_to_return
 
-    animation = FuncAnimation(fig, update, interval=10)
+    animation = FuncAnimation(fig, update, interval=10, blit=True)
     plt.show()
 
 else:
+    pre = np.fromstring(stream.read(CHUNK), np.int16)
     while True:
-        incoming = np.fromstring(stream.read(CHUNK), 'Int16')
-        S = spectral_estimate(windowed)
-        #  Do some processing stuff here!
+        incoming = np.fromstring(stream.read(CHUNK), np.int16)
+        t = time.time()
+        frame = np.append(pre, incoming, axis=0)
+        cochlea = cochleagram_extractor(frame, RATE, 320, 160, 126, 'hanning')
+        gfcc = gfcc_extractor(cochlea, 126, 32)
+        # svm_feat = data_preparation.feature_extraction(frame/1.0, RATE)
+        # print(detector.predict([svm_feat]))
+        gfcc = np.expand_dims(gfcc, 2)
+        gfcc = np.expand_dims(gfcc, 0)
+        res = classifier.predict(gfcc)
+        pred = np.argmax(res)
+        acc = res[0][pred]
+        pre = incoming
+        print(pred, acc, time.time()-t)
