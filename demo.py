@@ -25,7 +25,7 @@ def f1(y_true, y_pred):
     precision = precision(y_true, y_pred)
     recall = recall(y_true, y_pred)
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
-classifier = load_model("vgg-95-0.88.h5", custom_objects={'f1':f1})
+classifier = load_model("VGG1D-47-0.78.h5", custom_objects={'f1':f1})
 import pickle
 detector = pickle.load(open("svm_detector.pkl", 'rb'))
 #############################
@@ -40,7 +40,7 @@ lpcOverlay = False
 # Stream Parameters
 #############################
 DEVICE = 5
-CHUNK = 10200
+CHUNK = 5100
 WINDOW = np.hamming(CHUNK)
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
@@ -123,12 +123,12 @@ if not headless:
         axTime = fig.add_axes([.1, .5*nAx - .5 + .1/nAx, .8, .4*(3-nAx)])
         axTime.set_xticklabels('#c6dbef')
         plt.grid()
-        lineTime, = axTime.plot(range(2*CHUNK), range(2*CHUNK), c='#08519c')
+        lineTime, = axTime.plot(range(4*CHUNK), range(4*CHUNK), c='#08519c')
         plt.ylim([-80000, 80000])
-        plt.xlim([0, 2*CHUNK])
+        plt.xlim([0, 4*CHUNK])
         plt.title('Real Time Audio (milliseconds)')
-        axTime.set_xticks(np.linspace(0, 2*CHUNK, 5))
-        labels = ['%.1f' % (xx) for xx in np.linspace(0, 1000*2*CHUNK/RATE, 5)]
+        axTime.set_xticks(np.linspace(0, 4*CHUNK, 5))
+        labels = ['%.1f' % (xx) for xx in np.linspace(0, 1000*4*CHUNK/RATE, 5)]
         axTime.set_xticklabels(labels, rotation=0, verticalalignment='top')
         plt.ylabel('Amplitude')
 
@@ -153,26 +153,31 @@ if not headless:
     ######################################################
     # Define function to update figure for each iteration.
     ######################################################
-    pre = np.fromstring(stream.read(CHUNK), np.int16)
+    first = np.fromstring(stream.read(CHUNK), np.int16)
+    sec = np.fromstring(stream.read(CHUNK), np.int16)
+    third = np.fromstring(stream.read(CHUNK), np.int16)
     def update(frame_number):
         global oldy
-        global pre
+        global first, sec, third
         objects_to_return = []
         try:
             incoming = np.fromstring(stream.read(CHUNK), np.int16)
             if timeDomain:
-                newy = list(oldy[CHUNK:])
-                newy.extend(incoming)
+                frame = np.concatenate((first, sec, third, incoming), axis=0)
+                newy = list(oldy[4*CHUNK:])
+                newy.extend(frame)
                 lineTime.set_ydata(newy)
                 objects_to_return.append(lineTime)
-                frame = np.append(pre, incoming, axis=0)
-                cochlea = cochleagram_extractor(frame, RATE, 320, 160, 126, 'hanning')
-                gfcc = gfcc_extractor(cochlea, 126, 32)
+                # cochlea = cochleagram_extractor(frame, RATE, 320, 160, 126, 'hanning')
+                # gfcc = gfcc_extractor(cochlea, 126, 32)
                 # svm_feat = data_preparation.feature_extraction(frame/1.0, RATE)
                 # print(detector.predict([svm_feat]))
-                gfcc = np.expand_dims(gfcc, 2)
-                gfcc = np.expand_dims(gfcc, 0)
-                res = classifier.predict(gfcc)
+                # gfcc = np.expand_dims(gfcc, 2)
+                # gfcc = np.expand_dims(gfcc, 0)
+                svm_feat = data_preparation.feature_extraction(frame/1.0, RATE)
+                svm_feat = np.expand_dims(svm_feat, 0)
+                svm_feat = np.expand_dims(svm_feat, 2)
+                res = classifier.predict(svm_feat)
                 pred = np.argmax(res)
                 if pred == 0:
                     st = "normal"
@@ -181,7 +186,9 @@ if not headless:
                 else:
                     st = "crackle"
                 acc = res[0][pred]
-                pre = incoming
+                first = sec
+                sec = third
+                third = incoming
                 text = plt.text(0, 0, "predict: " + st + " - acc:" + str(acc) , dict(size=15))
                 objects_to_return.append(text)
                 oldy = newy
@@ -208,19 +215,26 @@ if not headless:
     plt.show()
 
 else:
-    pre = np.fromstring(stream.read(CHUNK), np.int16)
+    first = np.fromstring(stream.read(CHUNK), np.int16)
+    sec = np.fromstring(stream.read(CHUNK), np.int16)
+    third = np.fromstring(stream.read(CHUNK), np.int16)
     while True:
         incoming = np.fromstring(stream.read(CHUNK), np.int16)
         t = time.time()
-        frame = np.append(pre, incoming, axis=0)
-        cochlea = cochleagram_extractor(frame, RATE, 320, 160, 126, 'hanning')
-        gfcc = gfcc_extractor(cochlea, 126, 32)
-        # svm_feat = data_preparation.feature_extraction(frame/1.0, RATE)
+        frame = np.concatenate((first, sec, third, incoming), axis=0)
+        # cochlea = cochleagram_extractor(frame, RATE, 320, 160, 126, 'hanning')
+        # gfcc = gfcc_extractor(cochlea, 126, 32)
+        svm_feat = data_preparation.feature_extraction(frame, RATE)
         # print(detector.predict([svm_feat]))
-        gfcc = np.expand_dims(gfcc, 2)
-        gfcc = np.expand_dims(gfcc, 0)
-        res = classifier.predict(gfcc)
+        # gfcc = np.expand_dims(gfcc, 2)
+        # gfcc = np.expand_dims(gfcc, 0)
+        svm_feat = np.expand_dims(svm_feat, 0)
+        svm_feat = np.expand_dims(svm_feat, 2)
+
+        res = classifier.predict(svm_feat)
         pred = np.argmax(res)
         acc = res[0][pred]
-        pre = incoming
-        print(pred, acc, time.time()-t)
+        first = sec
+        sec = third
+        third = incoming
+        print("predict", pred, acc)
