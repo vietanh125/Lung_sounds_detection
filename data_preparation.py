@@ -23,33 +23,20 @@ from speech_feature_extractor.feature_extractor import cochleagram_extractor
 
 def feature_extraction(X, sample_rate):
     # Get features
-    mel = np.log(librosa.feature.melspectrogram(X, sr=sample_rate))
-    librosa.display.specshow(mel)
-    plt.show()
     stft = np.abs(librosa.stft(X))
-    mfccs = librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40)
-    # print("mfccs", mfccs.shape)
-    # mfccs = np.mean(mfccs.T, axis=0).flatten()  # 40 values
+    mfccs = np.mean(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=40).T, axis=0).flatten()  # 40 values
     zcr = np.mean(librosa.feature.zero_crossing_rate(y=X)).flatten()
-    chroma = librosa.feature.chroma_stft(S=stft, sr=sample_rate)
-    # print("chroma", chroma.shape)
-    # chroma = np.mean(chroma.T, axis=0).flatten()
+    chroma = np.mean(librosa.feature.chroma_stft(S=stft, sr=sample_rate).T, axis=0).flatten()
     mel = np.mean(librosa.feature.melspectrogram(X, sr=sample_rate).T, axis=0).flatten()
-    contrast = librosa.feature.spectral_contrast(S=stft, sr=sample_rate)
-    # print("contrast", contrast.shape)
-    # contrast = np.mean(contrast.T, axis=0).flatten()
-    tonnetz = librosa.feature.tonnetz(y=librosa.effects.harmonic(X), sr=sample_rate)
-    # print("tonnetz", tonnetz.shape)
-    # tonnetz = np.mean(tonnetz.T, axis=0).flatten()
-    cochlea = cochleagram_extractor(X, sample_rate, 980, 490, 64, 'hanning')
-    gfcc = gfcc_extractor(cochlea, 64, 32)
-    # print("gfcc", gfcc.shape, '\n')
-    feat = np.concatenate((tonnetz, contrast, chroma, gfcc), axis=0)
-    # print(feat.shape)
+    contrast = np.mean(librosa.feature.spectral_contrast(S=stft, sr=sample_rate).T, axis=0).flatten()
+    tonnetz = np.mean(librosa.feature.tonnetz(y=librosa.effects.harmonic(X), sr=sample_rate).T, # tonal centroid features
+                      axis=0).flatten()
+    cochlea = cochleagram_extractor(X, sample_rate, 320, 160, 64, 'hanning')
+    gfcc = np.mean(gfcc_extractor(cochlea, 64, 31).T, axis=0).flatten()
+    cochlea = np.mean(cochlea.T, axis=0).flatten()
+    # Return computed features
+    return np.concatenate((mfccs, chroma, mel, contrast, tonnetz, zcr, cochlea, gfcc), axis=0)
 
-    # cochlea = np.mean(cochlea.T, axis=0).flatten()
-    # return np.concatenate((mfccs, chroma, mel, contrast, tonnetz, zcr), axis=0)
-    return feat
 
 def bag_others():
     global X, y, c1, c2, c3
