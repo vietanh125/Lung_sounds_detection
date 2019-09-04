@@ -9,7 +9,6 @@ from keras.models import load_model
 import data_preparation
 from speech_feature_extractor.gfcc_extractor import gfcc_extractor
 from speech_feature_extractor.feature_extractor import cochleagram_extractor
-
 def f1(y_true, y_pred):
     def recall(y_true, y_pred):
         true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
@@ -25,7 +24,7 @@ def f1(y_true, y_pred):
     precision = precision(y_true, y_pred)
     recall = recall(y_true, y_pred)
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
-classifier = load_model("VGG1D-47-0.78.h5", custom_objects={'f1':f1})
+classifier = load_model("VGG1D-85-0.75.h5", custom_objects={'f1':f1})
 import pickle
 detector = pickle.load(open("svm_detector.pkl", 'rb'))
 #############################
@@ -119,36 +118,37 @@ if not headless:
     fig = plt.figure(facecolor='white')  # optional arg: figsize=(x, y)
     nAx = sum([1 for xx in [timeDomain, freqDomain] if xx])
 
-    if timeDomain:
-        axTime = fig.add_axes([.1, .5*nAx - .5 + .1/nAx, .8, .4*(3-nAx)])
-        axTime.set_xticklabels('#c6dbef')
-        plt.grid()
-        lineTime, = axTime.plot(range(4*CHUNK), range(4*CHUNK), c='#08519c')
-        plt.ylim([-80000, 80000])
-        plt.xlim([0, 4*CHUNK])
-        plt.title('Real Time Audio (milliseconds)')
-        axTime.set_xticks(np.linspace(0, 4*CHUNK, 5))
-        labels = ['%.1f' % (xx) for xx in np.linspace(0, 1000*4*CHUNK/RATE, 5)]
-        axTime.set_xticklabels(labels, rotation=0, verticalalignment='top')
-        plt.ylabel('Amplitude')
+    # if timeDomain:
+    axTime = fig.add_axes([.1, .5*nAx - .5 + .1/nAx, .8, .4*(3-nAx)])
+    axTime.set_xticklabels('#c6dbef')
+    plt.grid()
+    lineTime, = axTime.plot(range(4*CHUNK), range(4*CHUNK), c='#08519c')
+    plt.ylim([-80000, 80000])
+    plt.xlim([0, 4*CHUNK])
+    plt.title('Real Time Audio (milliseconds)')
+    axTime.set_xticks(np.linspace(0, 4*CHUNK, 5))
+    labels = ['%.1f' % (xx) for xx in np.linspace(0, 1000*4*CHUNK/RATE, 5)]
+    axTime.set_xticklabels(labels, rotation=0, verticalalignment='top')
+    plt.ylabel('Amplitude')
+    text = axTime.text(0.25, 0.05, "", dict(size=15), transform=axTime.transAxes, color='green')
 
-    if freqDomain:
-        axFreq = fig.add_axes([.1, .1/nAx, .8, 0.4*(3-nAx)])
-        axFreq.set_xticklabels('#c6dbef')
-        plt.grid()
-        lineFreq, = axFreq.plot(range(int(NFFT/2)), [0]*(int(NFFT/2)),
-                                c='#6baed6', label='FFT')
-        if lpcOverlay:
-            lineLPC, = axFreq.plot(range(int(NFFT/2)), [0]*(int(NFFT/2)),
-                                   '--', c='#08519c', label='LPC Envelope')
-        plt.ylim([-50, 300])
-        plt.xlim([0, NFFT/2])
-        plt.title('Real Time Audio (Hz)')
-        plt.legend()
-        axFreq.set_xticks(np.linspace(0, NFFT/2, 5))
-        labels = ['%.1f' % (xx) for xx in np.linspace(0, RATE/2, 5)]
-        axFreq.set_xticklabels(labels, rotation=0, verticalalignment='top')
-        plt.ylabel('Amplitude [dB]')
+    # if freqDomain:
+    #     axFreq = fig.add_axes([.1, .1/nAx, .8, 0.4*(3-nAx)])
+    #     axFreq.set_xticklabels('#c6dbef')
+    #     plt.grid()
+    #     lineFreq, = axFreq.plot(range(int(NFFT/2)), [0]*(int(NFFT/2)),
+    #                             c='#6baed6', label='FFT')
+    #     if lpcOverlay:
+    #         lineLPC, = axFreq.plot(range(int(NFFT/2)), [0]*(int(NFFT/2)),
+    #                                '--', c='#08519c', label='LPC Envelope')
+    #     plt.ylim([-50, 300])
+    #     plt.xlim([0, NFFT/2])
+    #     plt.title('Real Time Audio (Hz)')
+    #     plt.legend()
+    #     axFreq.set_xticks(np.linspace(0, NFFT/2, 5))
+    #     labels = ['%.1f' % (xx) for xx in np.linspace(0, RATE/2, 5)]
+    #     axFreq.set_xticklabels(labels, rotation=0, verticalalignment='top')
+    #     plt.ylabel('Amplitude [dB]')
 
     ######################################################
     # Define function to update figure for each iteration.
@@ -159,11 +159,13 @@ if not headless:
     def update(frame_number):
         global oldy
         global first, sec, third
+        global axTime
         objects_to_return = []
         try:
             incoming = np.fromstring(stream.read(CHUNK), np.int16)
             if timeDomain:
                 frame = np.concatenate((first, sec, third, incoming), axis=0)
+                frame = data_preparation.butter_bandpass_filter(frame, 120.0, 1800.0, RATE, 6)
                 newy = list(oldy[4*CHUNK:])
                 newy.extend(frame)
                 lineTime.set_ydata(newy)
@@ -189,18 +191,18 @@ if not headless:
                 first = sec
                 sec = third
                 third = incoming
-                text = plt.text(0, 0, "predict: " + st + " - acc:" + str(acc) , dict(size=15))
+                text.set_text("predict: " + st + " - acc:" + str(acc))
                 objects_to_return.append(text)
                 oldy = newy
-            if freqDomain:
-                windowed = incoming*WINDOW
-                S = spectral_estimate(windowed)
-                lineFreq.set_ydata(S)
-                if lpcOverlay:
-                    S_lpc = lpc_spectrum(windowed)
-                    lineLPC.set_ydata(S_lpc)
-                objects_to_return.append(lineFreq)
-                objects_to_return.append(lineLPC)
+            # if freqDomain:
+            #     windowed = incoming*WINDOW
+            #     S = spectral_estimate(windowed)
+            #     lineFreq.set_ydata(S)
+            #     if lpcOverlay:
+            #         S_lpc = lpc_spectrum(windowed)
+            #         lineLPC.set_ydata(S_lpc)
+            #     objects_to_return.append(lineFreq)
+            #     objects_to_return.append(lineLPC)
         except IOError as e:
             print (str(e))
             errorCount[0] += 1
