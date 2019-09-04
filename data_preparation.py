@@ -7,6 +7,7 @@ import numpy as np
 import os
 from stockwell import st
 from keras.applications.resnet50 import resnet50
+from scipy.signal import butter, lfilter
 
 from scipy.stats import zscore
 from keras.models import Model, Sequential
@@ -20,7 +21,18 @@ dir_ls = os.listdir(AU_PATH)
 
 from speech_feature_extractor.gfcc_extractor import gfcc_extractor
 from speech_feature_extractor.feature_extractor import cochleagram_extractor
+def butter_bandpass(lowcut, highcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    return b, a
 
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
 def feature_extraction(X, sample_rate):
     # Get features
     stft = np.abs(librosa.stft(X))
@@ -36,7 +48,6 @@ def feature_extraction(X, sample_rate):
     cochlea = np.mean(cochlea.T, axis=0).flatten()
     # Return computed features
     return np.concatenate((mfccs, chroma, mel, contrast, tonnetz, zcr, cochlea, gfcc), axis=0)
-
 
 def bag_others():
     global X, y, c1, c2, c3
@@ -79,6 +90,7 @@ def bag():
         # if name.split("_")[4] != "Litt3200" and name.split("_")[4] != "Meditron":
         #     continue
         au, sr = librosa.load(AU_PATH + name + ".wav")
+        print(sr)
         anno = np.genfromtxt(open(ANNO_PATH + name + ".txt", "rb"))
         win_length = int(0.92 * sr)
         for row in anno:
@@ -186,12 +198,12 @@ def gfcc_extract():
         #     np.save("y_stft_" + str(t) + ".npy", np.array(y))
         #     X = []
         #     y = []
-bag()
-X = np.array(X)
-y = np.array(y)
-print("--------------")
-print("Final data:", X.shape, y.shape)
-print("Normal", c1, "Wheeze", c2, "Crackle", c3)
-np.save("stacked.npy", X)
-np.save("y_stacked.npy", y)
+# gfcc_extract()
+# X = np.array(X)
+# y = np.array(y)
+# print("--------------")
+# print("Final data:", X.shape, y.shape)
+# print("Normal", c1, "Wheeze", c2, "Crackle", c3)
+# np.save("stacked.npy", X)
+# np.save("y_stacked.npy", y)
 
