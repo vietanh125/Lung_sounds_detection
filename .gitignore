@@ -1,3 +1,4 @@
 *.npy
 *.wav
 *.h5
+/speech_feature_extractor/

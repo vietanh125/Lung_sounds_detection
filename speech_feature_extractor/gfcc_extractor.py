@@ -1,9 +1,9 @@
 # coding = utf-8
 import numpy as np
-from scipy.io import wavfile
-from feature_extractor import cochleagram_extractor
+# from scipy.io import wavfile
+# from .feature_extractor import cochleagram_extractor
 from matplotlib import  pyplot as plt
-from speech_utils import read_sphere_wav
+# from .speech_utils import read_sphere_wav
 
 
 def gfcc_extractor(cochleagram, gf_channel, cc_channels):
@@ -11,9 +11,6 @@ def gfcc_extractor(cochleagram, gf_channel, cc_channels):
     for i in range(cc_channels):
         n = np.linspace(0, gf_channel-1, gf_channel)
         dctcoef[i, :] = np.cos((2 * n + 1) * i * np.pi / (2 * gf_channel))
-    plt.figure()
-    plt.imshow(dctcoef)
-    plt.show()
     return np.matmul(dctcoef, cochleagram)
 
 

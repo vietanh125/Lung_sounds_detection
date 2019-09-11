@@ -39,7 +39,7 @@ def random_mix_speech_noise(clean_speech, noise, snr, noise_from, noise_to):
     to_mix_noise = to_mix_noise / norm(to_mix_noise) * norm(to_mix_speech) / np.sqrt(10.0 ** (0.1 * snr))
     check_snr = 10*np.log10(np.square(norm(to_mix_speech)/norm(to_mix_noise)))
     if abs(check_snr - snr) > 1e-6:
-        print "FATAL ERROR: snr calculate error!!!!"
+        print ("FATAL ERROR: snr calculate error!!!!")
         exit(-1)
     mix = to_mix_noise + to_mix_speech
     return mix, to_mix_speech
@@ -349,7 +349,7 @@ def coch_synthesis(noisy, mask, sr, win_len, shift_len, frame_offset):
 def get_pesq_mos(speech, degraded, dlabel):
     rand_number = np.random.randint(0, 100)
     if len(speech) != len(degraded):
-        print "Fatal Error: the length is mismatch: speech: %d, degraded: %d" % (len(speech), len(degraded))
+        print ("Fatal Error: the length is mismatch: speech: %d, degraded: %d" % (len(speech), len(degraded)))
         exit(-1)
     write_wav_to_file(speech, 16000, "/data/duzhihao/tmp/%s/clean_%d.wav" % (dlabel, rand_number))
     write_wav_to_file(degraded, 16000, "/data/duzhihao/tmp/%s/degraded_%d.wav" % (dlabel, rand_number))
@@ -359,7 +359,7 @@ def get_pesq_mos(speech, degraded, dlabel):
     try:
         pesq_mos = float(output.split(' ')[-1])
     except:
-        print "Fatal Error: the output of pesq is:", output
+        print ("Fatal Error: the output of pesq is:", output)
         return None
     return pesq_mos
 
